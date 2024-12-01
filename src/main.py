@@ -12,6 +12,9 @@ class Route:
         self.graph = graph
         self.centerNode=centerNode
     
+    def get_node_list(self):
+        return list(self.graph.nodes)
+    
     def print_graph(self):
         nx.draw(self.graph, with_labels=True, pos=nx.circular_layout(self.graph), node_color='r', edge_color='b', font_weight='bold')
         # Obtendo os pesos das arestas
@@ -46,9 +49,7 @@ class Route:
                 if(origin != dest):
                     self.print_edges_info(origin, dest)
     
-        
-    
-def build_example_route(centerNode="D"):
+def build_random_example_route(centerNode="D"):
     #definir dados
     exampleGraph = nx.Graph() 
     listNode = ["A", "B", "C", "D", "E", "F"]
@@ -56,6 +57,33 @@ def build_example_route(centerNode="D"):
     
     exampleGraph.add_nodes_from(listNode) #adicionando os nos ao grafo
     exampleGraph.add_weighted_edges_from(listEdge) #adicionando as arestas ao grafo 
+    
+    return exampleGraph
+
+def build_example_route(listNodes=["A", "B", "C", "D", "E", "F"]):
+    centerNode = 'D'  # Nó central
+    exampleGraph = nx.Graph()
+    
+    # Adicionar nós ao grafo
+    for node in listNodes:
+        exampleGraph.add_node(node)
+    
+    # Adicionar arestas entre o nó central e todos os outros
+    for node in listNodes:
+        if node != centerNode:
+            weight = random.randint(1, 10)  # Peso aleatório entre 1 e 10
+            exampleGraph.add_edge(centerNode, node, weight=weight)
+    
+    # Adicionar algumas conexões adicionais (não exaustivo)
+    extra_edges = [
+        ("A", "B", 8),
+        ("A", "C", 12),
+        ("B", "E", 3),
+        ("C", "F", 7),
+        # Adicione mais arestas se necessário
+    ]
+    for edge in extra_edges:
+        exampleGraph.add_edge(edge[0], edge[1], weight=edge[2])
     
     return exampleGraph
 
@@ -78,35 +106,61 @@ def build_edges_with_center_node(listNode, centerNode):
                     
     return listEdgeResult
 
-def calc_economic(firstNode, secondNode, centerNode, graph):
+def calc_economic(firstNode, secondNode, route):
     
-    if(not(graph.has_edge(firstNode, secondNode))):
+    if(not(exist_economic_calculate(firstNode, secondNode, route))):
         return (-1) * sys.maxsize
     
-    firstToOriginD =  get_edge_value(graph, centerNode, firstNode)
-    secondToOriginD = get_edge_value(graph, centerNode, secondNode)
-    firstToSecondD =  get_edge_value(graph, firstNode, secondNode)
+    firstToOriginD =  get_edge_value(route.graph, route.centerNode, firstNode)
+    secondToOriginD = get_edge_value(route.graph, route.centerNode, secondNode)
+    firstToSecondD =  get_edge_value(route.graph, firstNode, secondNode)
         
     return firstToOriginD + secondToOriginD - firstToSecondD 
 
 def get_edge_value(graph, originNode, destNode):
     return graph.get_edge_data(originNode, destNode).get("weight")
 
+def select_key_for_sort(dict):
+    return dict['Value']
+
+def exist_economic_calculate(firstNode, secondNode, route):
+    #verificar se existe uma rota entres os nós intermediarios e se nenhum deles é o nó central
+    return route.graph.has_edge(firstNode, secondNode) and ( firstNode != route.centerNode) and (secondNode != route.centerNode)
+
+def build_economic_dict(route):
+    economicDict = [] #dicionario a ser desenvolvido
+    nodeList = route.get_node_list()
+    
+    for i in range(0, (len(nodeList)-1)):
+        for j in range(i+1, (len(nodeList))):
+            economicDict.append(
+                {
+                    'SubRoute': [nodeList[i], nodeList[j]],
+                    'Value': calc_economic(nodeList[i], nodeList[j], route) 
+                    
+                }
+            )
+    return economicDict
+            
+
 def main():
     
-    route = Route(build_example_route("D"), "D")
+    route = Route(build_example_route(), "D")
     # route.graph.
     # route = Route(nx.graph_atlas(), 3)
-    listNodes = list(route.graph.nodes)
+    # listNodes = list(route.graph.nodes)
     
     # route.graph.get_edge_data(listNodes[0], listNodes[1]).get("weight")
     # print(listNodes)
-    dist = calc_economic(listNodes[0], listNodes[1], route.centerNode, route.graph)
-    print(f"distancia : {dist}")
+    economicCalc = build_economic_dict(route)
+    economicCalc.sort(key=select_key_for_sort, reverse=True)
     
     route.print_edges_and_weight()
     
-    route.print_graph()
+    print(economicCalc[0]['Value'])
+    
+    
+    # route.print_graph()
 
 #Executar funcao principal
 main()
