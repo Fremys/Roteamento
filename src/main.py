@@ -35,10 +35,10 @@ class Route:
             origin (string): nó de origem da aresta
             dest (string): nó de destino da aresta
         """
-        if(self.graph.has_edge(origin, dest)):
-            print(f"Aresta: {origin} - {dest} | Valor = {self.graph.get_edge_data(origin, dest).get("weight")}") 
-        else:
-            print(f"Aresta: {origin} - {dest} | Valor = N/A")     
+        # if(self.graph.has_edge(origin, dest)):
+        #     print(f"Aresta: {origin} - {dest} | Valor = {self.graph.get_edge_data(origin, dest).get("weight")}")
+        # else:
+        #     print(f"Aresta: {origin} - {dest} | Valor = N/A")     
             
     def print_edges_and_weight(self):
         
@@ -106,9 +106,9 @@ def build_edges_with_center_node(listNode, centerNode):
                     
     return listEdgeResult
 
-def calc_economic(firstNode, secondNode, route):
+def calc_economy(firstNode, secondNode, route):
     
-    if(not(exist_economic_calculate(firstNode, secondNode, route))):
+    if(not(exist_economy_calculate(firstNode, secondNode, route))):
         return (-1) * sys.maxsize
     
     firstToOriginD =  get_edge_value(route.graph, route.centerNode, firstNode)
@@ -123,7 +123,7 @@ def get_edge_value(graph, originNode, destNode):
 def select_key_for_sort(dict):
     return dict['Value']
 
-def exist_economic_calculate(firstNode, secondNode, route):
+def exist_economy_calculate(firstNode, secondNode, route):
     #verificar se existe uma rota entres os nós intermediarios e se nenhum deles é o nó central
     return route.graph.has_edge(firstNode, secondNode) and ( firstNode != route.centerNode) and (secondNode != route.centerNode)
 
@@ -136,12 +136,32 @@ def build_economic_dict(route):
             economicDict.append(
                 {
                     'SubRoute': [nodeList[i], nodeList[j]],
-                    'Value': calc_economic(nodeList[i], nodeList[j], route) 
+                    'Value': calc_economy(nodeList[i], nodeList[j], route) 
                     
                 }
             )
     return economicDict
-            
+
+def buildGraphFromTXT (graphPath):
+    # Instancia o grafo que sera preenchido pela funcao de leitura do TXT
+    G = nx.Graph()
+
+    # Leitura do TXT
+    with open(graphPath, 'r', encoding='utf-8') as file:
+        linhas = file.readlines()
+        
+        # Atribuindo os centros de distribuicao que estao na primeira linha destacada
+        centros = linhas[0].strip().split()
+        for centro in centros:
+            G.add_node(centro, tipo='CentroDistribuicao')
+
+        # Outras linhas: conexões entre os nodulos
+        for linha in linhas[1:]:
+            origem, destino, peso = linha.strip().split()
+            G.add_edge(origem, destino, weight=int(peso))
+
+    return G
+
 
 def main():
     
@@ -163,4 +183,17 @@ def main():
     # route.print_graph()
 
 #Executar funcao principal
-main()
+#main()
+graph = buildGraphFromTXT('grafo.txt')
+
+# Exibe as arestas com os pesos
+print("Arestas e pesos:")
+for origem, destino, dados in graph.edges(data=True):
+    print(f"{origem} -> {destino}, peso: {dados['weight']}")
+
+# Desenha o grafo
+pos = nx.spring_layout(graph)  # Layout do grafo
+nx.draw(graph, pos, with_labels=True, node_color='lightblue', font_weight='bold')
+labels = nx.get_edge_attributes(graph, 'weight')
+nx.draw_networkx_edge_labels(graph, pos, edge_labels=labels)
+plt.show()
