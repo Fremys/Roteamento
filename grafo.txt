@@ -1,4 +1,4 @@
-A B
+A B C D E F G H
 A D 10
 A F 5
 B D 20

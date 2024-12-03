@@ -142,58 +142,66 @@ def build_economic_dict(route):
             )
     return economicDict
 
-def buildGraphFromTXT (graphPath):
-    # Instancia o grafo que sera preenchido pela funcao de leitura do TXT
+def buildGraphNodesFromTXT (graphPath):
     G = nx.Graph()
-
-    # Leitura do TXT
     with open(graphPath, 'r', encoding='utf-8') as file:
         linhas = file.readlines()
         
         # Atribuindo os centros de distribuicao que estao na primeira linha destacada
-        centros = linhas[0].strip().split()
-        for centro in centros:
-            G.add_node(centro, tipo='CentroDistribuicao')
+        nodes = linhas[0].strip().split()
+        for node in nodes:
+            G.add_node(node)
+    return G
 
+def connectGraphNodesFromTXT (graphPath, G):
+    with open(graphPath, 'r', encoding='utf-8') as file:
+        linhas = file.readlines()
+    
         # Outras linhas: conexões entre os nodulos
         for linha in linhas[1:]:
             origem, destino, peso = linha.strip().split()
             G.add_edge(origem, destino, weight=int(peso))
-
     return G
+
+def buildFullGraphFromTXT (graphPath):
+    # Grafo apenas com os nodes
+    rawGraph = buildGraphNodesFromTXT(graphPath)
+
+    # Preencher grafo com as ligações
+    fullGraph = connectGraphNodesFromTXT(graphPath, rawGraph)
+
+    return fullGraph
 
 
 def main():
     
-    route = Route(build_example_route(), "D")
+    # route = Route(build_example_route(), "D")
+    route = Route(buildFullGraphFromTXT('grafo.txt'), "D")
+    print(route.centerNode)
     # route.graph.
     # route = Route(nx.graph_atlas(), 3)
     # listNodes = list(route.graph.nodes)
     
     # route.graph.get_edge_data(listNodes[0], listNodes[1]).get("weight")
     # print(listNodes)
-    economicCalc = build_economic_dict(route)
-    economicCalc.sort(key=select_key_for_sort, reverse=True)
+    # economicCalc = build_economic_dict(route)
+    # economicCalc.sort(key=select_key_for_sort, reverse=True)
     
-    route.print_edges_and_weight()
+    # route.print_edges_and_weight()
     
-    print(economicCalc[0]['Value'])
-    
+    # print(economicCalc[0]['Value'])
     
     # route.print_graph()
 
-#Executar funcao principal
-#main()
-graph = buildGraphFromTXT('grafo.txt')
+main()
+# # Exibe as arestas com os pesos
+# print("Arestas e pesos:")
+# for origem, destino, dados in graph.edges(data=True):
+#     print(f"{origem} -> {destino}, peso: {dados['weight']}")
 
-# Exibe as arestas com os pesos
-print("Arestas e pesos:")
-for origem, destino, dados in graph.edges(data=True):
-    print(f"{origem} -> {destino}, peso: {dados['weight']}")
-
-# Desenha o grafo
-pos = nx.spring_layout(graph)  # Layout do grafo
-nx.draw(graph, pos, with_labels=True, node_color='lightblue', font_weight='bold')
-labels = nx.get_edge_attributes(graph, 'weight')
-nx.draw_networkx_edge_labels(graph, pos, edge_labels=labels)
-plt.show()
+# # Desenha o grafo
+# pos = nx.spring_layout(graph)  # Layout do grafo
+# nx.draw(graph, pos, with_labels=True, node_color='lightblue', font_weight='bold')
+# labels = nx.get_edge_attributes(graph, 'weight')
+# nx.draw_networkx_edge_labels(graph, pos, edge_labels=labels)
+# plt.show()
