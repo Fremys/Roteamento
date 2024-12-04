@@ -11,7 +11,7 @@ results/: Resultados gerados pelos experimentos do algoritmo.
 # Tecnologias Utilizadas
 Linguagem de Programação: Pthton
 
-Bibliotecas/Frameworks: Pandas, 
+Bibliotecas/Frameworks: pandas, networkx, matplotlib.pyplot, random e sys 
 
 Ferramentas: Jupyter Notebook
 
