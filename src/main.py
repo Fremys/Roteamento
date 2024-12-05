@@ -4,13 +4,22 @@ import matplotlib.pyplot as plt
 import random
 import sys
 
+class NodeDemand():
+    Node = ""
+    Demand = ""
+    
+    def __init__(self, node, demand):
+        self.Node = node
+        self.Demand = demand
 class Route:
     graph = nx.null_graph
     centerNode = ""
+    qMax = 0
             
-    def __init__(self, graph, centerNode):
+    def __init__(self, graph, centerNode, qMax):
         self.graph = graph
         self.centerNode=centerNode
+        self.qMax = qMax
     
     def get_node_list(self):
         return list(self.graph.nodes)
@@ -43,12 +52,36 @@ class Route:
     def print_edges_and_weight(self):
         
         nodes = list(self.graph.nodes) #resgatar lista de nos do grafo
-        
         for origin in nodes:
             for dest in nodes:
                 if(origin != dest):
                     self.print_edges_info(origin, dest)
+
+def get_node_demand(node, demandList):
+    for nodeDemand in demandList:
+        if(nodeDemand.Node == node):
+            return nodeDemand.Demand
+    return 0
+
+def build_demand_list(nodesGraph, demandList):
+    nodeDemandList = []
     
+    if(len(nodesGraph) == len(demandList)):
+        for i in range(0, len(nodesGraph)):
+            nodeDemandList.append(
+                NodeDemand(nodesGraph[i], demandList[i])
+                )
+            
+    return nodeDemandList  
+    
+def build_fix_demand(value, numbersNode):
+    listFixDemand = []
+    
+    for i in range(0, numbersNode):
+          listFixDemand.append(value)
+          
+    return listFixDemand
+ 
 def build_random_example_route(centerNode="D"):
     #definir dados
     exampleGraph = nx.Graph() 
@@ -106,41 +139,41 @@ def build_edges_with_center_node(listNode, centerNode):
                     
     return listEdgeResult
 
-def calc_economy(firstNode, secondNode, route):
-    
-    if(not(exist_economy_calculate(firstNode, secondNode, route))):
-        return (-1) * sys.maxsize
-    
-    firstToOriginD =  get_edge_value(route.graph, route.centerNode, firstNode)
-    secondToOriginD = get_edge_value(route.graph, route.centerNode, secondNode)
-    firstToSecondD =  get_edge_value(route.graph, firstNode, secondNode)
+def calc_init_economy(firstNode, secondNode, route):
+    """_summary_
+    Esse método realiza o calculo da economia inicial
+    para a primeiro iteração do método
+
+    Args:
+        firstNode (Dictionary<string:Node, List:Path>): dicionario com o nó e a lista do menor caminho dele para o centro
+        secondNode (Dictionary<string:Node, List:Path>): dicionario com o nó e a lista do menor caminho dele para o centro
+        route (Route): rota do problema
+
+    Returns:
+        int: valor do calculo inicial da economia
+    """
+
+    firstToOriginD =  get_value_path(route.graph, firstNode["Path"])
+    secondToOriginD = get_value_path(route.graph, secondNode["Path"])
+    pathFirstToSecond = nx.dijkstra_path(route.graph, firstNode["Node"], secondNode["Node"]) #resgatar menor caminho entre os dois nós
+    firstToSecondD = get_value_path(route.graph, pathFirstToSecond) 
         
     return firstToOriginD + secondToOriginD - firstToSecondD 
 
-def get_edge_value(graph, originNode, destNode):
-    return graph.get_edge_data(originNode, destNode).get("weight")
+def get_value_path(graph, nodeList):
+    result = 0
+    
+    for i in range(0, len(nodeList) - 1 ):
+        result = result + graph.get_edge_data(nodeList[i], nodeList[i+1]).get("weight")
+    
+    return result
 
 def select_key_for_sort(dict):
-    return dict['Value']
+    return dict["Economics"]
 
 def exist_economy_calculate(firstNode, secondNode, route):
     #verificar se existe uma rota entres os nós intermediarios e se nenhum deles é o nó central
     return route.graph.has_edge(firstNode, secondNode) and ( firstNode != route.centerNode) and (secondNode != route.centerNode)
-
-def build_economic_dict(route):
-    economicDict = [] #dicionario a ser desenvolvido
-    nodeList = route.get_node_list()
-    
-    for i in range(0, (len(nodeList)-1)):
-        for j in range(i+1, (len(nodeList))):
-            economicDict.append(
-                {
-                    'SubRoute': [nodeList[i], nodeList[j]],
-                    'Value': calc_economy(nodeList[i], nodeList[j], route) 
-                    
-                }
-            )
-    return economicDict
 
 def build_graph_nodes_from_TXT (graphPath):
     G = nx.Graph()
@@ -172,22 +205,114 @@ def build_full_graph_from_TXT (graphPath):
 
     return fullGraph
 
-def clark_and_wrigth():
-    print("metodo")
+def get_min_path_for_center(route): 
+    """_summary_
+
+    Usa dijkstra para calcular o caminho minimo de cada
+    nó do grafo da rota para o centro
+
+    Args:
+        route (Rute): rota do problema
+
+    Returns:
+        Dictionary<Node:string, Path:List>: lista do menor caminho do nó para o centro
+    """
+     
+    listNode = route.get_node_list()
+    minPaths = []
+    
+    for node in listNode:
+        if(node != route.centerNode):
+            pathForCenter = nx.dijkstra_path(route.graph, node, route.centerNode, weight='weight') #buscar o menor caminho do nó para o centro
+            minPaths.append(
+                    {
+                        "Node": node,
+                        "Path": pathForCenter
+                    }
+                )
+            
+    return minPaths
+
+def demand_calculate(listNode, demandList):
+    result = 0
+    for node in listNode:
+        result = result + get_node_demand(node, demandList)
+    return result
+
+def group_init_paths(minPathForCenter, demandList, route):
+    """_summary_
+
+    Args:
+        minPathForCenter (Dictionary<Node:string, Path:List> : List ): lista de caminhos minimos de cada no para o centro
+        route (Route): a rota do problema
+
+    Returns:
+        Dictionary<Nodes:List, Economics:int>:List : lista de pares dos nós é suas respectivas economias 
+    """
+    
+    newTableRoute = []
+    
+    for i in range(0, (len(minPathForCenter)-1)):
+        for j in range(i+1, (len(minPathForCenter))):
+            
+            listNodes = [minPathForCenter[i]["Node"], minPathForCenter[j]["Node"]]
+            newTableRoute.append(
+                {
+                    "Nodes": listNodes, 
+                    "Economics":  calc_init_economy(minPathForCenter[i], minPathForCenter[j], route),
+                    "Demand" : demand_calculate(listNodes, demandList)
+                }
+            )
+            
+    return newTableRoute          
+            
+def fusion_routes(economicsList):
+    """_summary_
+        Método que realiza a fusão entre as rotas
+
+        Args:
+            economicsList (Dictionary<Nodes: List, Economics:int>:List  ): Lista das economias dos nós ordenadas
+        Returns:
+
+    """
+    newTableRoute = []
+    
+    for i in range(0, len(economicsList)-1 ):
+        for j in range(0, len(economicsList)):
+            print("teste")
+            
+def clark_and_wrigth(route, demandList):
+    
+    minPathsForCenter = get_min_path_for_center(route)
+    
+    economicList = group_init_paths(minPathsForCenter, demandList, route)
+    
+    economicList.sort(key=select_key_for_sort, reverse=True)
+    
+    print("finish")
+    
+    # economicCalc = build_economic_dict(route) #calculo da economia
+    # economicCalc.sort(key=select_key_for_sort, reverse=True)
 
 def main():
     
     # route = Route(build_example_route(), "D")
-    route = Route(build_full_graph_from_TXT('data/grafo.txt'), "D")
-    # route.print_graph()
+    route = Route(build_full_graph_from_TXT('data/grafo.txt'), "D", 50)
     
+    #resgatar a demanda
+    fixDemand = build_fix_demand(40, len(route.get_node_list()) )
+    demandList = build_demand_list(route.get_node_list(), fixDemand)
+    
+    # route.graph.get_edge_data
+    # route.print_graph()
+    clark_and_wrigth(route, demandList)
     
     # route = Route(nx.graph_atlas(), 3)
     
     # route.graph.get_edge_data(listNodes[0], listNodes[1]).get("weight")
     # print(listNodes)
-    economicCalc = build_economic_dict(route)
-    economicCalc.sort(key=select_key_for_sort, reverse=True)
+    # economicCalc = build_economic_dict(route)
+    # economicCalc.sort(key=select_key_for_sort, reverse=True)
     
     # route.print_edges_and_weight()
     
