@@ -3,6 +3,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import random
 import sys
+#teste
 
 class NodeDemand():
     Node = ""
