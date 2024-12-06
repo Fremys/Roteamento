@@ -1,41 +1,24 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
 import networkx as nx
 import random
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-def save_routes_to_txt(graph, filename="rotas.txt"):
-    with open(filename, "w") as file:
-        file.write("1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31\n")
-        for u, v, data in graph.edges(data=True):
-            file.write(f"{u}, {v}, {data['weight']}\n")
-    print(f"Rotas registradas no arquivo: {filename}")
-
-def save_results_to_txt(routes, filename="resultados.txt"):
-    with open(filename, "w") as file:
-        file.write("Rotas Otimizadas (Clarke-Wright)\n")
-        for route in routes:
-            file.write(f" -> ".join(map(str, route)) + "\n")
-    print(f"Resultados registrados no arquivo: {filename}")
-
+# Funções do problema
 def generate_graph(num_nodes=31):
-    # Cria um grafo vazio
     G = nx.Graph()
-    
-    # Adiciona os nós
     G.add_nodes_from(range(1, num_nodes + 1))
-    
-    # Atribui demandas aleatórias (exceto ao depósito)
     demands = {node: random.randint(1, 10) for node in G.nodes}
     demands[1] = 0  # Depósito tem demanda 0
     nx.set_node_attributes(G, demands, "demand")
     
-    # Garante que cada nó tenha pelo menos uma aresta conectada
     for node in G.nodes:
         target = random.choice([n for n in G.nodes if n != node])
-        weight = random.randint(1, 100)  # Peso aleatório
+        weight = random.randint(1, 100)
         G.add_edge(node, target, weight=weight)
     
-    # Adiciona arestas adicionais aleatórias
-    for _ in range(num_nodes * 2):  # Ajuste para maior conectividade
+    for _ in range(num_nodes * 2):
         u, v = random.sample(G.nodes, 2)
         if not G.has_edge(u, v):
             weight = random.randint(1, 100)
@@ -44,12 +27,10 @@ def generate_graph(num_nodes=31):
     return G
 
 def clarke_wright_algorithm(G, depot=1, vehicle_capacity=50):
-    # Inicializa rotas individuais para cada nó
     demands = nx.get_node_attributes(G, "demand")
     routes = {node: ([depot, node, depot], demands[node]) for node in G.nodes if node != depot}
     savings = []
     
-    # Calcula as economias entre cada par de nós
     for i in G.nodes:
         for j in G.nodes:
             if i < j and i != depot and j != depot:
@@ -58,10 +39,8 @@ def clarke_wright_algorithm(G, depot=1, vehicle_capacity=50):
                 cost_savings = cost_direct - nx.shortest_path_length(G, i, j, weight='weight')
                 savings.append((cost_savings, i, j))
     
-    # Ordena as economias em ordem decrescente
     savings.sort(reverse=True, key=lambda x: x[0])
     
-    # Aplica o algoritmo de Clarke-Wright para otimizar as rotas
     for _, i, j in savings:
         route_i = next((r for r in routes.values() if i in r[0]), None)
         route_j = next((r for r in routes.values() if j in r[0]), None)
@@ -70,10 +49,8 @@ def clarke_wright_algorithm(G, depot=1, vehicle_capacity=50):
             route_nodes_i, load_i = route_i
             route_nodes_j, load_j = route_j
             
-            # Verifica a capacidade do veículo
             if load_i + load_j <= vehicle_capacity:
                 if route_nodes_i[-2] == i and route_nodes_j[1] == j:
-                    # Une as rotas i e j
                     new_route = route_nodes_i[:-1] + route_nodes_j[1:]
                     new_load = load_i + load_j
                     for node in new_route[1:-1]:
@@ -82,30 +59,118 @@ def clarke_wright_algorithm(G, depot=1, vehicle_capacity=50):
     
     return [route[0] for route in routes.values()]
 
-# Gera o grafo
-graph = generate_graph()
+class GraphApp(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Clarke-Wright Algorithm")
+        self.geometry("800x600")
+        
+        self.graph = None
+        self.original_xlim = None
+        self.original_ylim = None
+        
+        # Botão para gerar grafo
+        self.generate_btn = ttk.Button(self, text="Gerar Grafo", command=self.generate_graph)
+        self.generate_btn.pack(pady=10)
+        
+        # Área para visualização do grafo
+        self.figure = plt.Figure(figsize=(6, 4))
+        self.canvas = FigureCanvasTkAgg(self.figure, self)
+        self.canvas.get_tk_widget().pack()
+        
+        # Botão para aplicar o algoritmo
+        self.apply_btn = ttk.Button(self, text="Aplicar Clarke-Wright", command=self.apply_algorithm)
+        self.apply_btn.pack(pady=10)
+        
+        # Botão para resetar o zoom
+        self.reset_zoom_btn = ttk.Button(self, text="Resetar Zoom", command=self.reset_zoom)
+        self.reset_zoom_btn.pack(pady=10)
+        
+        # Área para mostrar resultados
+        self.result_label = ttk.Label(self, text="Resultados:", anchor="w")
+        self.result_label.pack(fill="x", pady=5)
+        self.result_text = tk.Text(self, height=10)
+        self.result_text.pack(fill="both", expand=True)
+    
+    def generate_graph(self):
+        self.graph = generate_graph()
+        self.display_graph()
+        self.result_text.delete("1.0", tk.END)
+        self.result_text.insert(tk.END, "Grafo gerado com sucesso!\n")
+    
+    def display_graph(self):
+        self.figure.clear()
+        pos = nx.spring_layout(self.graph, k=0.4, seed=42)
+        ax = self.figure.add_subplot(111)
+        nx.draw(
+            self.graph,
+            pos,
+            ax=ax,
+            with_labels=True,
+            node_color="lightblue",
+            font_weight="bold",
+            node_size=800
+        )
+        labels = nx.get_edge_attributes(self.graph, 'weight')
+        nx.draw_networkx_edge_labels(self.graph, pos, edge_labels=labels, ax=ax)
+        
+        # Salvar limites originais para resetar o zoom
+        self.original_xlim = ax.get_xlim()
+        self.original_ylim = ax.get_ylim()
+        
+        # Permite interatividade com o zoom
+        self.canvas.mpl_connect("scroll_event", lambda event: self.zoom(event, ax))
+        self.canvas.draw()
 
-save_routes_to_txt(graph)
+    def zoom(self, event, ax):
+        base_scale = 1.1
+        scale_factor = base_scale if event.button == "up" else 1 / base_scale
+        
+        # Coordenadas do mouse em relação ao gráfico
+        xdata = event.xdata
+        ydata = event.ydata
 
-# Desenha o grafo
-pos = nx.spring_layout(graph)
-nx.draw(graph, pos, with_labels=True, node_color="lightblue", font_weight="bold")
-labels = nx.get_edge_attributes(graph, 'weight')
-nx.draw_networkx_edge_labels(graph, pos, edge_labels=labels)
-plt.title("Grafo Gerado")
-plt.show()
+        # Obter limites atuais
+        cur_xlim = ax.get_xlim()
+        cur_ylim = ax.get_ylim()
 
-# Mostra demandas
-demands = nx.get_node_attributes(graph, "demand")
-print("Demandas dos nós:", demands)
+        # Calcular as distâncias relativas ao centro do zoom
+        x_left = xdata - cur_xlim[0]
+        x_right = cur_xlim[1] - xdata
+        y_bottom = ydata - cur_ylim[0]
+        y_top = cur_ylim[1] - ydata
 
-# Executa o algoritmo de Clarke-Wright
-vehicle_capacity = 50
-best_routes = clarke_wright_algorithm(graph, vehicle_capacity=vehicle_capacity)
+        # Ajustar os limites com base no fator de escala
+        new_xlim = [xdata - x_left * scale_factor, xdata + x_right * scale_factor]
+        new_ylim = [ydata - y_bottom * scale_factor, ydata + y_top * scale_factor]
 
-# Salva os resultados das rotas otimizadas no arquivo TXT
-save_results_to_txt(best_routes)
+        ax.set_xlim(new_xlim)
+        ax.set_ylim(new_ylim)
 
-print("\nMelhores Rotas Geradas pelo Algoritmo Clarke-Wright:")
-for route in best_routes:
-    print(route)
+        # Redesenhar o gráfico
+        self.canvas.draw()
+    
+    def reset_zoom(self):
+        if self.original_xlim and self.original_ylim:
+            ax = self.figure.axes[0]  # Pega o primeiro (e único) eixo do gráfico
+            ax.set_xlim(self.original_xlim)
+            ax.set_ylim(self.original_ylim)
+            self.canvas.draw()
+    
+    def apply_algorithm(self):
+        if self.graph is None:
+            messagebox.showerror("Erro", "Gere um grafo primeiro!")
+            return
+        
+        best_routes = clarke_wright_algorithm(self.graph)
+        self.result_text.delete("1.0", tk.END)
+        self.result_text.insert(tk.END, "Rotas Otimizadas:\n")
+        for route in best_routes:
+            self.result_text.insert(tk.END, f"{' -> '.join(map(str, route))}\n")
+        self.result_text.insert(tk.END, "\nAlgoritmo concluído com sucesso!")
+
+
+# Inicializa o aplicativo
+if __name__ == "__main__":
+    app = GraphApp()
+    app.mainloop()
