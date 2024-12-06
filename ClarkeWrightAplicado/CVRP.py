@@ -29,6 +29,7 @@ def generate_graph(num_nodes=31):
 
 def clarke_wright_algorithm(G, depot=1, vehicle_capacity=50):
     demands = nx.get_node_attributes(G, "demand")
+    print(vehicle_capacity)
     routes = {node: ([depot, node, depot], demands[node]) for node in G.nodes if node != depot}
     savings = []
     
@@ -67,7 +68,7 @@ def load_graph_from_txt(filepath):
     num_nodes = int(lines[0].strip())
     vehicle_capacity = int(lines[1].strip())
     demands = list(map(int, lines[2].strip().split()))
-    
+
     G = nx.Graph()
     G.add_nodes_from(range(1, num_nodes + 1))
     nx.set_node_attributes(G, {i + 1: demand for i, demand in enumerate(demands)}, "demand")
@@ -82,7 +83,7 @@ class GraphApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Clarke-Wright Algorithm")
-        self.geometry("800x600")
+        self.geometry("1200x800")
         
         self.graph = None
         self.original_xlim = None
@@ -198,7 +199,7 @@ class GraphApp(tk.Tk):
             messagebox.showerror("Erro", "Gere um grafo primeiro!")
             return
         
-        best_routes = clarke_wright_algorithm(self.graph)
+        best_routes = clarke_wright_algorithm(self.graph,vehicle_capacity=self.vehicle_capacity)
         self.result_text.delete("1.0", tk.END)
         self.result_text.insert(tk.END, "Rotas Otimizadas:\n")
         for route in best_routes:
