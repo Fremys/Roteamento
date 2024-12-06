@@ -1,3 +1,4 @@
+import tkinter.filedialog as fd
 import tkinter as tk
 from tkinter import ttk, messagebox
 import networkx as nx
@@ -59,6 +60,24 @@ def clarke_wright_algorithm(G, depot=1, vehicle_capacity=50):
     
     return [route[0] for route in routes.values()]
 
+def load_graph_from_txt(filepath):
+    with open(filepath, "r") as file:
+        lines = file.readlines()
+    
+    num_nodes = int(lines[0].strip())
+    vehicle_capacity = int(lines[1].strip())
+    demands = list(map(int, lines[2].strip().split()))
+    
+    G = nx.Graph()
+    G.add_nodes_from(range(1, num_nodes + 1))
+    nx.set_node_attributes(G, {i + 1: demand for i, demand in enumerate(demands)}, "demand")
+    
+    for line in lines[3:]:
+        node1, node2, weight = map(int, line.strip().split())
+        G.add_edge(node1, node2, weight=weight)
+    
+    return G, vehicle_capacity
+
 class GraphApp(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -72,6 +91,10 @@ class GraphApp(tk.Tk):
         # Botão para gerar grafo
         self.generate_btn = ttk.Button(self, text="Gerar Grafo", command=self.generate_graph)
         self.generate_btn.pack(pady=10)
+
+        # Botão para carregar grafo de um TXT
+        self.load_btn = ttk.Button(self, text="Carregar Grafo de TXT", command=self.load_graph)
+        self.load_btn.pack(pady=10)
         
         # Área para visualização do grafo
         self.figure = plt.Figure(figsize=(6, 4))
@@ -97,6 +120,19 @@ class GraphApp(tk.Tk):
         self.display_graph()
         self.result_text.delete("1.0", tk.END)
         self.result_text.insert(tk.END, "Grafo gerado com sucesso!\n")
+    
+    def load_graph(self):
+        filepath = fd.askopenfilename(filetypes=[("Text Files", "*.txt")])
+        if not filepath:
+            return
+        
+        try:
+            self.graph, self.vehicle_capacity = load_graph_from_txt(filepath)
+            self.display_graph()
+            self.result_text.delete("1.0", tk.END)
+            self.result_text.insert(tk.END, f"Grafo carregado com sucesso de {filepath}!\n")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao carregar o arquivo: {e}")
     
     def display_graph(self):
         self.figure.clear()
